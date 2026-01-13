@@ -1,0 +1,251 @@
+# Loan State: {d0430907-3d20-497e-94ef-323c9426ab9b}
+
+## Meta
+```yaml
+loan_id: "{d0430907-3d20-497e-94ef-323c9426ab9b}"
+workflow: "FHA_Eligibility"
+version: "2.0"
+status: "in_progress"  # new | in_progress | eligible | ineligible | requires_approval
+created: "2026-01-12T10:00:00Z"
+last_updated: "2026-01-12T10:30:00Z"
+current_step: 3
+next_step: 4
+total_steps: 8
+```
+
+## Loan Snapshot
+```yaml
+# Core eligibility data
+program: "FHA"
+transaction_type: "Purchase"  # Purchase | Rate/Term Refi | Cash-Out Refi
+decision_credit_score: 620
+ltv: 95.5
+cltv: 95.5
+front_dti: 31.5
+back_dti: 45.0
+aus_recommendation: "Approve/Eligible"  # or Manual UW
+underwriting_method: "AUS"
+gift_funds_used: false
+gift_amount: 0
+pitia_reserves_months: 0
+ownership_months: 0  # For Cash-Out only
+```
+
+## Decision Flow Progress
+
+### ✅ Step 0: Confirm Program
+**Status**: PASSED  
+**Checked**: 2026-01-12T10:00:00Z  
+**Condition**: Loan is FHA → ✓ PASS  
+**Notes**: Program confirmed as FHA
+
+### ✅ Step 1: Identify Transaction Type  
+**Status**: PASSED  
+**Checked**: 2026-01-12T10:05:00Z  
+**Type Identified**: Purchase  
+**Route**: → Step 3A (Purchase LTV rules)
+
+### ✅ Step 2: Credit Score Floor
+**Status**: PASSED  
+**Checked**: 2026-01-12T10:10:00Z  
+**Condition**: Score >= 500 → 620 >= 500 ✓ PASS  
+**Notes**: Meets minimum credit requirement
+
+### ✅ Step 3: LTV/CLTV Eligibility (Purchase)
+**Status**: PASSED  
+**Checked**: 2026-01-12T10:15:00Z  
+**Sub-step**: 3A - Purchase LTV  
+**Condition**: FICO >= 580 → Max LTV 96.5%  
+**Evaluation**: 95.5% <= 96.5% ✓ PASS  
+**Notes**: Within maximum LTV for credit score tier
+
+### 🔵 Step 4: Underwriting Path (CURRENT)
+**Status**: PENDING  
+**Decision**: Route to AUS (Step 5) or Manual (Step 6)  
+**Data Available**: aus_recommendation = "Approve/Eligible"  
+**Expected Route**: → Step 5 (AUS DTI Gate)  
+**Next Action**: Confirm AUS path and proceed to DTI evaluation
+
+### ⏳ Step 5: DTI Gate (AUS)
+**Status**: NOT_STARTED  
+**Depends On**: Step 4 routing  
+**Applicable If**: AUS path selected  
+**Sub-steps**:
+- 5A: Purchase Overlays (if applicable)
+- 5B: AUS DTI Decision
+
+### ⏳ Step 6: DTI Gate (Manual)
+**Status**: SKIPPED  
+**Reason**: AUS path expected (not manual)
+
+### ⏳ Step 7: Final Eligibility
+**Status**: NOT_STARTED  
+**Depends On**: All previous steps passed
+
+## Conditions Tracker
+
+### Checked Conditions
+```yaml
+conditions_evaluated:
+  - condition: "loan_is_fha"
+    result: true
+    step: 0
+  - condition: "credit_score_gte_500"
+    result: true
+    actual_value: 620
+    threshold: 500
+    step: 2
+  - condition: "ltv_within_limit_for_score"
+    result: true
+    actual_ltv: 95.5
+    max_ltv: 96.5
+    credit_tier: "580+"
+    step: 3
+```
+
+### Pending Conditions
+```yaml
+pending_conditions:
+  - condition: "route_to_aus_or_manual"
+    step: 4
+    data_needed: ["underwriting_method"]
+  - condition: "purchase_overlay_high_dti"
+    step: 5
+    applicable_if: "transaction_type == Purchase AND credit_score 580-659 AND dti >= 50"
+  - condition: "purchase_overlay_gifts"
+    step: 5
+    applicable_if: "transaction_type == Purchase AND gift_funds_used == true"
+  - condition: "aus_approves_ratios"
+    step: 5
+    data_needed: ["aus_recommendation"]
+```
+
+## Flags & Exceptions
+```yaml
+warnings: []
+# Example: 
+# - type: "approaching_limit"
+#   message: "LTV 95.5% is close to max 96.5%"
+#   severity: "low"
+
+exceptions: []
+# Example:
+# - type: "manager_approval_required"
+#   reason: "High DTI with adequate reserves"
+#   step: 5
+#   status: "pending_approval"
+
+ineligibility_reasons: []
+# Example:
+# - step: 2
+#   reason: "Decision Credit Score 480 < 500"
+#   action_required: "Credit improvement or product change"
+```
+
+## AI Agent Context
+
+### What Happened Last Run
+```
+Last evaluated: Step 3 (LTV/CLTV Eligibility)
+Result: PASSED
+Reasoning: "Borrower has credit score of 620 (>= 580 tier), which allows 
+max LTV of 96.5%. Current LTV is 95.5%, which is within limit."
+Next action: Proceed to Step 4 (Underwriting Path)
+```
+
+### For Next Run (Agent Instructions)
+```
+CURRENT_POSITION: Step 4
+TASK: Determine if loan follows AUS or Manual underwriting path
+DATA_AVAILABLE: aus_recommendation = "Approve/Eligible"
+DECISION: If AUS → Route to Step 5, If Manual → Route to Step 6
+ACTION: Evaluate current data and route to appropriate DTI gate
+```
+
+### Quick Decision Context
+```yaml
+# Agent uses this for instant context loading
+steps_completed: [0, 1, 2, 3]
+steps_pending: [4, 5, 7]
+steps_skipped: []
+critical_values:
+  score: 620
+  ltv: 95.5
+  dti: 45.0
+  transaction: "Purchase"
+path_taken: "Purchase → FICO 580+ → AUS"
+blockers: []  # Any condition preventing forward progress
+```
+
+## Execution Log
+```yaml
+runs:
+  - run: 1
+    timestamp: "2026-01-12T10:00:00Z"
+    steps_evaluated: [0]
+    result: "pass"
+    duration_ms: 1200
+    
+  - run: 2
+    timestamp: "2026-01-12T10:05:00Z"
+    steps_evaluated: [1]
+    result: "pass"
+    duration_ms: 800
+    
+  - run: 3
+    timestamp: "2026-01-12T10:10:00Z"
+    steps_evaluated: [2]
+    result: "pass"
+    duration_ms: 950
+    
+  - run: 4
+    timestamp: "2026-01-12T10:15:00Z"
+    steps_evaluated: [3]
+    result: "pass"
+    duration_ms: 1500
+    
+  - run: 5
+    timestamp: "2026-01-12T10:30:00Z"
+    steps_evaluated: []
+    result: "pending"
+    note: "Awaiting next trigger for Step 4"
+```
+
+## Field Audit Trail
+```yaml
+# Track when each field was retrieved from Encompass
+field_retrievals:
+  - field: "LoanProductData.LoanProgramName"
+    value: "FHA"
+    retrieved: "2026-01-12T10:00:00Z"
+    source: "encompass_loan_record"
+    
+  - field: "DecisionCreditScore"
+    value: 620
+    retrieved: "2026-01-12T10:10:00Z"
+    source: "encompass_field_reader"
+    
+  - field: "LoanProductData.LTV"
+    value: 95.5
+    retrieved: "2026-01-12T10:15:00Z"
+    source: "encompass_field_reader"
+```
+
+---
+## Human-Readable Summary
+
+**Current Status**: Step 4 pending evaluation  
+**Overall Progress**: 50% complete (4/8 steps)  
+**Eligibility**: On track - no blockers identified  
+**Last Action**: Confirmed LTV within limits for Purchase with FICO 580+  
+**Next Action**: Route to AUS or Manual underwriting path  
+**ETA to Completion**: 4 more steps remaining  
+
+**Path Taken**:  
+FHA Program ✓ → Purchase Transaction ✓ → Score 620 ✓ → LTV 95.5% ✓ → [Determining UW Path...]
+
+**Key Metrics**:
+- Credit Score: 620 (Good - qualifies for 96.5% max LTV)
+- LTV: 95.5% (Within limit)
+- DTI: 45.0% (Pending evaluation based on UW path)
+- Transaction: Purchase (Purchase overlays will apply)
