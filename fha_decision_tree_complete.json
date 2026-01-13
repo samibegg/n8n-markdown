@@ -1,0 +1,416 @@
+{
+  "workflow_name": "Master FHA Eligibility Action Tree",
+  "version": "2.0",
+  "description": "Complete FHA loan eligibility decision workflow with all conditional logic and actions",
+  "loan_types": ["FHA Purchase", "FHA Rate/Term Refi", "FHA Cash-Out Refi"],
+  "steps": [
+    {
+      "step_id": "0",
+      "step_name": "Confirm Program",
+      "step_type": "validation",
+      "decision": "Loan registered as FHA?",
+      "conditions": [
+        {
+          "condition": "Loan is not FHA",
+          "outcome": "stop",
+          "action": "Correct product selection; stop FHA workflow",
+          "is_eligible": false
+        },
+        {
+          "condition": "Loan is FHA",
+          "outcome": "continue",
+          "action": "Continue to Step 1",
+          "is_eligible": true
+        }
+      ]
+    },
+    {
+      "step_id": "1",
+      "step_name": "Identify Transaction Type",
+      "step_type": "classification",
+      "decision": "Transaction type?",
+      "transaction_types": [
+        {
+          "type": "Purchase",
+          "next_step": "2"
+        },
+        {
+          "type": "Rate/Term Refi (Non-Streamlined)",
+          "next_step": "2"
+        },
+        {
+          "type": "Cash-Out Refi",
+          "next_step": "2"
+        }
+      ]
+    },
+    {
+      "step_id": "2",
+      "step_name": "Credit Score Floor",
+      "step_type": "validation",
+      "decision": "Decision Credit Score >= 500?",
+      "conditions": [
+        {
+          "condition": "Decision Credit Score < 500",
+          "outcome": "not_eligible",
+          "action": "Notify client FHA requires minimum 500; credit improvement or product change required",
+          "is_eligible": false,
+          "field_checks": {
+            "encompass_field": "Decision_Credit_Score",
+            "operator": "<",
+            "value": 500
+          }
+        },
+        {
+          "condition": "Decision Credit Score >= 500",
+          "outcome": "continue",
+          "action": "Continue to Step 3",
+          "is_eligible": true
+        }
+      ]
+    },
+    {
+      "step_id": "3",
+      "step_name": "LTV/CLTV Eligibility Gate (by Transaction Type)",
+      "step_type": "validation",
+      "sub_steps": [
+        {
+          "sub_step_id": "3A",
+          "sub_step_name": "PURCHASE LTV",
+          "applies_when": {
+            "transaction_type": "Purchase"
+          },
+          "decision": "Decision Credit Score 500-579?",
+          "conditions": [
+            {
+              "condition": "FICO 500-579 AND LTV > 90%",
+              "outcome": "not_eligible",
+              "action": "Increase down payment and/or reduce loan amount",
+              "is_eligible": false,
+              "field_checks": {
+                "decision_credit_score": {
+                  "min": 500,
+                  "max": 579
+                },
+                "ltv": {
+                  "operator": ">",
+                  "value": 90.0
+                }
+              }
+            },
+            {
+              "condition": "FICO >= 580 AND LTV > 96.50%",
+              "outcome": "not_eligible",
+              "action": "Increase down payment and/or reduce loan amount",
+              "is_eligible": false,
+              "field_checks": {
+                "decision_credit_score": {
+                  "min": 580
+                },
+                "ltv": {
+                  "operator": ">",
+                  "value": 96.5
+                }
+              }
+            },
+            {
+              "condition": "FICO 500-579 AND LTV <= 90%",
+              "outcome": "continue",
+              "is_eligible": true
+            },
+            {
+              "condition": "FICO >= 580 AND LTV <= 96.50%",
+              "outcome": "continue",
+              "is_eligible": true
+            }
+          ]
+        },
+        {
+          "sub_step_id": "3B",
+          "sub_step_name": "RATE/TERM REFI (NON-STREAMLINED) LTV",
+          "applies_when": {
+            "transaction_type": "Rate/Term Refi (Non-Streamlined)"
+          },
+          "decision": "Decision Credit Score 500-579?",
+          "conditions": [
+            {
+              "condition": "FICO 500-579 AND LTV/CLTV > 90%",
+              "outcome": "not_eligible",
+              "action": "Reduce loan amount",
+              "is_eligible": false,
+              "field_checks": {
+                "decision_credit_score": {
+                  "min": 500,
+                  "max": 579
+                },
+                "ltv_cltv": {
+                  "operator": ">",
+                  "value": 90.0
+                }
+              }
+            },
+            {
+              "condition": "FICO >= 580 AND LTV/CLTV > 97.75%",
+              "outcome": "not_eligible",
+              "action": "Reduce loan amount",
+              "is_eligible": false,
+              "field_checks": {
+                "decision_credit_score": {
+                  "min": 580
+                },
+                "ltv_cltv": {
+                  "operator": ">",
+                  "value": 97.75
+                }
+              }
+            },
+            {
+              "condition": "Eligible LTV/CLTV",
+              "outcome": "continue",
+              "is_eligible": true
+            }
+          ]
+        },
+        {
+          "sub_step_id": "3C",
+          "sub_step_name": "CASH-OUT REFI LTV + SEASONING",
+          "applies_when": {
+            "transaction_type": "Cash-Out Refi"
+          },
+          "conditions": [
+            {
+              "condition": "LTV/CLTV > 80%",
+              "outcome": "not_eligible",
+              "action": "Reduce loan amount",
+              "is_eligible": false,
+              "field_checks": {
+                "ltv_cltv": {
+                  "operator": ">",
+                  "value": 80.0
+                }
+              }
+            },
+            {
+              "condition": "Ownership/occupancy < 12 months",
+              "outcome": "not_eligible",
+              "action": "Change transaction type or stop; cash-out not permitted under matrix",
+              "is_eligible": false,
+              "field_checks": {
+                "ownership_months": {
+                  "operator": "<",
+                  "value": 12
+                }
+              }
+            },
+            {
+              "condition": "Property acquired < 12 months",
+              "outcome": "not_eligible",
+              "action": "Change transaction type or stop",
+              "is_eligible": false,
+              "notes": "Exception (manager approval path): Current team, when at month 11, is holding case assignment pull until seasoning is met, but allowing submission"
+            },
+            {
+              "condition": "LTV/CLTV <= 80% AND seasoning met",
+              "outcome": "continue",
+              "is_eligible": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "step_id": "4",
+      "step_name": "Underwriting Path",
+      "step_type": "routing",
+      "decision": "AUS or Manual Underwrite?",
+      "conditions": [
+        {
+          "condition": "AUS Approve/Eligible",
+          "outcome": "route_to_step_5",
+          "action": "Apply AUS DTI + overlays",
+          "next_step": "5"
+        },
+        {
+          "condition": "Manual UW",
+          "outcome": "route_to_step_6",
+          "action": "Apply Manual DTI rules",
+          "next_step": "6"
+        }
+      ]
+    },
+    {
+      "step_id": "5",
+      "step_name": "DTI Gate (AUS)",
+      "step_type": "validation",
+      "applies_when": {
+        "underwriting_path": "AUS"
+      },
+      "sub_steps": [
+        {
+          "sub_step_id": "5A",
+          "sub_step_name": "Determine whether Purchase overlays apply",
+          "decision": "Is this a Purchase loan?",
+          "conditions": [
+            {
+              "condition": "Transaction type is NOT Purchase",
+              "outcome": "skip_overlays",
+              "action": "Skip overlays (overlay matrix applies to Purchase; streamlines & cash-out refis are exempt) and go to 5B",
+              "next_sub_step": "5B"
+            },
+            {
+              "condition": "Transaction type is Purchase",
+              "outcome": "apply_overlays",
+              "action": "Apply overlays below",
+              "overlays": [
+                {
+                  "overlay_name": "High DTI + Credit Score (Purchase only)",
+                  "conditions": [
+                    {
+                      "condition": "Decision Credit Score 580-659 AND DTI >= 50.000%",
+                      "outcome": "not_eligible",
+                      "action": "Restructure to DTI <= 49.999% (even if AUS Approve/Eligible)",
+                      "is_eligible": false,
+                      "exception": {
+                        "condition": "Borrower documents >= 12 months post-closing PITIA reserves from own funds (no gifts)",
+                        "outcome": "manager_approval_required",
+                        "action": "Collect 60-day asset statements/liquidation support and submit for UW Manager approval",
+                        "notes": "DTI must still meet AUS caps"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "overlay_name": "Gift Funds (Purchase only)",
+                  "conditions": [
+                    {
+                      "condition": "Gifts used for down payment/closing/reserves AND (DTI > 47.999% OR Decision Credit Score < 600)",
+                      "outcome": "gifts_not_permitted",
+                      "action": "Remove gifts and source required funds from borrower's own verified assets or restructure to meet thresholds",
+                      "is_eligible": true,
+                      "notes": "Gifts permitted only if: DTI <= 47.999% AND Decision Credit Score >= 600"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sub_step_id": "5B",
+          "sub_step_name": "AUS DTI decision",
+          "decision": "Does AUS approve the ratios?",
+          "conditions": [
+            {
+              "condition": "AUS does not approve ratios",
+              "outcome": "not_eligible",
+              "action": "Restructure loan to meet AUS DTI/ratio requirements",
+              "is_eligible": false
+            },
+            {
+              "condition": "AUS approves ratios",
+              "outcome": "continue",
+              "action": "Continue to Step 7",
+              "is_eligible": true,
+              "next_step": "7"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "step_id": "6",
+      "step_name": "DTI Gate (Manual Underwrite)",
+      "step_type": "validation",
+      "applies_when": {
+        "underwriting_path": "Manual"
+      },
+      "decision": "Decision Credit Score 500-579 or non-traditional/no score?",
+      "conditions": [
+        {
+          "condition": "FICO 500-579 or no score AND DTI > 31/43",
+          "outcome": "not_eligible",
+          "action": "Restructure to <= 31/43",
+          "is_eligible": false,
+          "notes": "DTI may not exceed 31/43 regardless of compensating factors"
+        },
+        {
+          "condition": "FICO > 580 AND DTI > 31/43",
+          "outcome": "not_eligible",
+          "action": "Restructure",
+          "is_eligible": false
+        },
+        {
+          "condition": "DTI <= 31/43",
+          "outcome": "continue",
+          "action": "Continue to Step 7",
+          "is_eligible": true,
+          "next_step": "7"
+        }
+      ]
+    },
+    {
+      "step_id": "7",
+      "step_name": "ELIGIBLE TO SUBMIT",
+      "step_type": "final_validation",
+      "decision": "All requirements passed?",
+      "required_checks": [
+        "Score floor (>= 500)",
+        "Transaction-specific LTV/CLTV (+ any occupancy/seasoning caps)",
+        "DTI gate (AUS or Manual)",
+        "Purchase overlays (High DTI overlay + Gift Funds overlay, when applicable)"
+      ],
+      "conditions": [
+        {
+          "condition": "Score + LTV + DTI + overlays satisfied",
+          "outcome": "eligible",
+          "action": "Submit to Underwriting",
+          "is_eligible": true
+        },
+        {
+          "condition": "Any check failed",
+          "outcome": "not_eligible",
+          "action": "Review failed conditions and take corrective action",
+          "is_eligible": false
+        }
+      ]
+    }
+  ],
+  "encompass_field_mappings": {
+    "decision_credit_score": "DecisionCreditScore",
+    "transaction_type": "LoanProductData.LoanType",
+    "ltv": "LoanProductData.LTV",
+    "ltv_cltv": "LoanProductData.CLTV",
+    "dti": "LoanProductData.TotalExpenseRatio",
+    "front_end_dti": "LoanProductData.HousingExpenseRatio",
+    "aus_recommendation": "AUSRecommendation",
+    "underwriting_method": "UnderwritingMethod",
+    "gift_funds_used": "Assets.GiftFundsUsed",
+    "ownership_months": "PropertyOwnershipMonths",
+    "pitia_reserves": "PITIAReserves"
+  },
+  "data_extraction_requirements": {
+    "from_loan_record": [
+      "Decision Credit Score",
+      "Transaction Type",
+      "LTV/CLTV",
+      "DTI (Front and Back)",
+      "AUS Recommendation",
+      "Underwriting Method",
+      "Gift Funds Usage",
+      "Ownership/Occupancy Duration",
+      "PITIA Reserves"
+    ],
+    "from_documents": [
+      "Credit Report (for score verification)",
+      "AUS Report (for recommendation)",
+      "Asset Statements (for reserves validation)"
+    ]
+  },
+  "validation_notes": {
+    "credit_score": "Use 'Decision Credit Score' not individual bureau scores",
+    "ltv_calculation": "For Cash-Out, must check BOTH LTV and CLTV",
+    "seasoning": "12-month seasoning required for Cash-Out from case number assignment date",
+    "manager_exceptions": "High DTI with reserves may be approved by UW Manager for Purchase loans only",
+    "gift_restrictions": "Gifts only permitted for Purchase with DTI <= 47.999% AND Score >= 600"
+  }
+}
