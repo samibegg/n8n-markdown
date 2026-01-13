@@ -1,0 +1,92 @@
+# Loan State: {LOAN_ID}
+
+## Meta
+```yaml
+loan_id: "{LOAN_ID}"
+workflow: "FHA_Eligibility"
+version: "2.0"
+status: "new"
+created: "{TIMESTAMP}"
+last_updated: "{TIMESTAMP}"
+current_step: null
+next_step: "0"
+total_steps: 8
+```
+
+## Loan Snapshot
+```yaml
+# Populated from Encompass on first evaluation
+program: ""
+transaction_type: ""
+decision_credit_score: 0
+ltv: 0
+cltv: 0
+front_dti: 0
+back_dti: 0
+aus_recommendation: ""
+underwriting_method: ""
+gift_funds_used: false
+gift_amount: 0
+pitia_reserves_months: 0
+ownership_months: 0
+```
+
+## Decision Flow Progress
+
+### ⏳ Step 0: Confirm Program
+**Status**: NOT_STARTED
+
+### ⏳ Step 1: Identify Transaction Type
+**Status**: NOT_STARTED
+
+### ⏳ Step 2: Credit Score Floor
+**Status**: NOT_STARTED
+
+### ⏳ Step 3: LTV/CLTV Eligibility
+**Status**: NOT_STARTED
+
+### ⏳ Step 4: Underwriting Path
+**Status**: NOT_STARTED
+
+### ⏳ Step 5: DTI Gate (AUS)
+**Status**: NOT_STARTED
+
+### ⏳ Step 6: DTI Gate (Manual)
+**Status**: NOT_STARTED
+
+### ⏳ Step 7: Final Eligibility
+**Status**: NOT_STARTED
+
+## Conditions Tracker
+```yaml
+conditions_evaluated: []
+pending_conditions:
+  - step: "0"
+    condition: "Loan program must be FHA"
+```
+
+## Flags & Exceptions
+```yaml
+warnings: []
+exceptions: []
+ineligibility_reasons: []
+```
+
+## AI Agent Context
+```yaml
+last_evaluated_step: null
+last_evaluation_time: null
+next_action: "Begin evaluation at Step 0 - Confirm Program"
+data_retrieved: false
+```
+
+## Execution Log
+```yaml
+runs: []
+```
+
+---
+## Summary
+**Status**: New loan - awaiting first evaluation  
+**Next Step**: Step 0 - Confirm Program  
+**Progress**: 0% (0/8 steps complete)
